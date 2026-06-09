@@ -1,0 +1,92 @@
+services:
+  # ─── Event Bus ───
+  nats:
+    image: nats:2.10-alpine
+    container_name: pts-nats
+    ports:
+      - "4222:4222"   # Client
+      - "8222:8222"   # Monitoring
+    command: ["--jetstream", "--store_dir=/data", "-m", "8222"]
+    volumes:
+      - nats_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── Live State Store ───
+  redis:
+    image: redis:7-alpine
+    container_name: pts-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── Historical Storage ───
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: pts-clickhouse
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # Native
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_DB: pts
+      CLICKHOUSE_USER: pts
+      CLICKHOUSE_PASSWORD: pts_secret
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "pts", "--password", "pts_secret", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─── Metrics Collection ───
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: pts-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+    depends_on:
+      - nats
+
+  # ─── Dashboards & Monitoring ───
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: pts-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: pts_admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/trading.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  nats_data:
+  redis_data:
+  clickhouse_data:
+  prometheus_data:
+  grafana_data:

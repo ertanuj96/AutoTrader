@@ -1,0 +1,17 @@
+[project]
+name = "pts-dashboard-api"
+version = "0.1.0"
+description = "PTS Dashboard API — FastAPI backend"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.0",
+    "redis[hiredis]>=5.0.0",
+    "clickhouse-connect>=0.7.0",
+    "nats-py>=2.7.0",
+    "orjson>=3.9.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "python-dotenv>=1.0.0",
+    "prometheus-client>=0.20.0",
+]

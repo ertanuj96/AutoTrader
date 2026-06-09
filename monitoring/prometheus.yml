@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "trading-core"
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
+    metrics_path: /metrics
+
+  - job_name: "dashboard-api"
+    static_configs:
+      - targets: ["host.docker.internal:8001"]
+    metrics_path: /metrics
+
+  - job_name: "nats"
+    static_configs:
+      - targets: ["nats:8222"]
+    metrics_path: /metrics
