@@ -1,0 +1,16 @@
+[package]
+name = "autotrader-signal"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+autotrader-common = { path = "../common" }
+autotrader-regime = { path = "../regime" }
+autotrader-trend = { path = "../trend" }
+autotrader-reversal = { path = "../reversal" }
+autotrader-movement = { path = "../movement" }
+serde.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+

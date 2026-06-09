@@ -1,0 +1,15 @@
+[package]
+name = "autotrader-reversal"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+autotrader-common = { path = "../common" }
+tokio.workspace = true
+serde.workspace = true
+statrs.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+

@@ -1,4 +1,4 @@
-<![CDATA[# ── Environment ──
+# ── Environment ──
 .env
 .env.local
 .env.*.local
@@ -50,4 +50,4 @@ docker-data/
 # ── Logs ──
 *.log
 logs/
-]]>
+
