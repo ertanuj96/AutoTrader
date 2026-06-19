@@ -64,13 +64,59 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_kalman_tracks_trend() {
+    fn test_tracks_linear_uptrend() {
         let mut kf = KalmanFilter::new(100.0, 0.01, 1.0);
         for i in 1..100 {
-            let price = 100.0 + i as f64 * 0.5; // Linear trend
-            kf.update(price);
+            kf.update(100.0 + i as f64 * 0.5);
         }
-        assert!(kf.slope() > 0.4, "Slope: {}", kf.slope());
+        assert!(kf.slope() > 0.4, "slope = {}", kf.slope());
+    }
+
+    #[test]
+    fn test_tracks_linear_downtrend() {
+        let mut kf = KalmanFilter::new(200.0, 0.01, 1.0);
+        for i in 1..100 {
+            kf.update(200.0 - i as f64 * 0.3);
+        }
+        assert!(kf.slope() < -0.25, "slope = {}", kf.slope());
+    }
+
+    #[test]
+    fn test_flat_series_slope_near_zero() {
+        let mut kf = KalmanFilter::new(100.0, 0.001, 0.1);
+        for _ in 0..200 {
+            kf.update(100.0);
+        }
+        assert!(kf.slope().abs() < 0.05, "slope on flat = {}", kf.slope());
+    }
+
+    #[test]
+    fn test_price_estimate_finite() {
+        let mut kf = KalmanFilter::new(18000.0, 0.1, 5.0);
+        for i in 0..50 {
+            let (price, slope, unc) = kf.update(18000.0 + i as f64 * 10.0);
+            assert!(price.is_finite());
+            assert!(slope.is_finite());
+            assert!(unc >= 0.0 && unc.is_finite());
+        }
+    }
+
+    #[test]
+    fn test_slope_uncertainty_positive() {
+        let mut kf = KalmanFilter::new(100.0, 0.01, 1.0);
+        let (_, _, unc) = kf.update(101.0);
+        assert!(unc > 0.0);
+    }
+
+    #[test]
+    fn test_noisy_uptrend_slope_positive() {
+        let mut kf = KalmanFilter::new(100.0, 0.05, 2.0);
+        // Linear trend + deterministic noise
+        for i in 1..150 {
+            let noise = ((i as f64 * 1.3).sin()) * 0.5;
+            kf.update(100.0 + i as f64 * 0.2 + noise);
+        }
+        assert!(kf.slope() > 0.0, "noisy uptrend slope = {}", kf.slope());
     }
 }
 

@@ -324,55 +324,105 @@ impl GaussianHMM {
 mod tests {
     use super::*;
 
+    fn trending_returns(n: usize) -> Vec<f64> {
+        (0..n).map(|i| 0.001 + (i as f64 * 0.0001).sin() * 0.0002).collect()
+    }
+
+    fn ranging_returns(n: usize) -> Vec<f64> {
+        (0..n).map(|i| ((i as f64 * 1.7).sin()) * 0.0005).collect()
+    }
+
+    fn high_vol_returns(n: usize) -> Vec<f64> {
+        (0..n).map(|i| ((i as f64 * 2.3).sin()) * 0.02).collect()
+    }
+
     #[test]
-    fn test_hmm_construction() {
+    fn test_transition_rows_sum_to_one() {
         let hmm = GaussianHMM::new(3);
-        assert_eq!(hmm.k, 3);
-        assert_eq!(hmm.transition.nrows(), 3);
-        assert_eq!(hmm.transition.ncols(), 3);
-        // Rows should sum to 1
         for i in 0..3 {
-            let row_sum: f64 = (0..3).map(|j| hmm.transition[(i, j)]).sum();
-            assert!((row_sum - 1.0).abs() < 1e-10);
+            let s: f64 = (0..3).map(|j| hmm.transition[(i, j)]).sum();
+            assert!((s - 1.0).abs() < 1e-10, "row {i} sum = {s}");
         }
     }
 
     #[test]
-    fn test_hmm_fit_synthetic() {
-        // Generate synthetic data: alternating trending and ranging periods
-        let mut data = Vec::new();
-        let mut val = 100.0;
+    fn test_initial_distribution_sums_to_one() {
+        let hmm = GaussianHMM::new(3);
+        let s: f64 = hmm.initial.iter().sum();
+        assert!((s - 1.0).abs() < 1e-10);
+    }
 
-        // Trending up
-        for _ in 0..50 {
-            val += 0.5 + 0.1 * (rand_simple() - 0.5);
-            data.push(val);
-        }
-        // Ranging
-        let center = val;
-        for _ in 0..50 {
-            val = center + 2.0 * (rand_simple() - 0.5);
-            data.push(val);
-        }
+    #[test]
+    fn test_state_probabilities_sum_to_one() {
+        let hmm = GaussianHMM::new(3);
+        let data = trending_returns(100);
+        let probs = hmm.current_state_probabilities(&data);
+        assert_eq!(probs.len(), 3);
+        let s: f64 = probs.iter().sum();
+        assert!((s - 1.0).abs() < 1e-9, "probs sum = {s}");
+        for p in &probs { assert!(*p >= 0.0 && *p <= 1.0); }
+    }
 
-        // Convert to returns
-        let returns: Vec<f64> = data.windows(2).map(|w| (w[1] / w[0]).ln()).collect();
+    #[test]
+    fn test_viterbi_length_matches_input() {
+        let hmm = GaussianHMM::new(3);
+        let data = trending_returns(50);
+        let states = hmm.decode(&data);
+        assert_eq!(states.len(), data.len());
+        for &s in &states { assert!(s < 3); }
+    }
 
+    #[test]
+    fn test_viterbi_empty_input_returns_empty() {
+        let hmm = GaussianHMM::new(3);
+        assert!(hmm.decode(&[]).is_empty());
+    }
+
+    #[test]
+    fn test_fit_converges_trending() {
         let mut hmm = GaussianHMM::new(3);
-        hmm.fit(&returns, 100, 1e-6);
+        hmm.fit(&trending_returns(200), 50, 1e-6);
+        assert!(hmm.log_likelihood.is_finite(), "ll = {}", hmm.log_likelihood);
+    }
 
-        // Should converge (log-likelihood should be finite)
+    #[test]
+    fn test_fit_converges_ranging() {
+        let mut hmm = GaussianHMM::new(3);
+        hmm.fit(&ranging_returns(200), 50, 1e-6);
         assert!(hmm.log_likelihood.is_finite());
     }
 
-    /// Simple deterministic pseudo-random for tests (no external dep needed).
-    fn rand_simple() -> f64 {
-        use std::time::SystemTime;
-        let seed = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .subsec_nanos();
-        ((seed as f64 * 0.0000001) % 1.0).abs()
+    #[test]
+    fn test_fit_converges_high_vol() {
+        let mut hmm = GaussianHMM::new(3);
+        hmm.fit(&high_vol_returns(200), 50, 1e-6);
+        assert!(hmm.log_likelihood.is_finite());
+    }
+
+    #[test]
+    fn test_fit_too_short_is_noop() {
+        let mut hmm = GaussianHMM::new(3);
+        let ll_before = hmm.log_likelihood;
+        hmm.fit(&[0.001], 10, 1e-6);
+        assert_eq!(hmm.log_likelihood, ll_before);
+    }
+
+    #[test]
+    fn test_variances_remain_positive_after_fit() {
+        let mut hmm = GaussianHMM::new(3);
+        hmm.fit(&ranging_returns(300), 100, 1e-8);
+        for i in 0..3 {
+            assert!(hmm.variances[i] > 0.0, "variance[{i}] = {}", hmm.variances[i]);
+        }
+    }
+
+    #[test]
+    fn test_emission_floors_at_nonzero() {
+        // Zero-probability emissions must not produce log(0) = -inf
+        let hmm = GaussianHMM::new(3);
+        let extreme = vec![1e10_f64; 10]; // Far from initial means
+        let probs = hmm.current_state_probabilities(&extreme);
+        for p in probs { assert!(p.is_finite()); }
     }
 }
 

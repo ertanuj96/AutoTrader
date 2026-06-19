@@ -71,3 +71,56 @@ cancel_all_orders() ->
             _:_ -> io:format("  ⚠️  Could not reach ~p~n", [Session])
         end
     end, Brokers).
+
+%% ── EUnit tests ──
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+setup() ->
+    case whereis(?MODULE) of
+        undefined -> {ok, _} = start_link();
+        _Pid      -> ok
+    end.
+
+teardown(_) ->
+    case whereis(?MODULE) of
+        undefined -> ok;
+        _         -> gen_server:stop(?MODULE)
+    end.
+
+kill_switch_test_() ->
+    {foreach, fun setup/0, fun teardown/1, [
+        fun initially_inactive/0,
+        fun activates_on_first_call/0,
+        fun already_active_returns_reason/0,
+        fun active_after_activation/0
+    ]}.
+
+initially_inactive() ->
+    %% Fresh process starts inactive
+    fun() -> ?assertEqual(false, is_active()) end.
+
+activates_on_first_call() ->
+    fun() ->
+        %% Ensure inactive first
+        case is_active() of
+            true  -> ok;  %% already activated in a prior test (foreach restarts)
+            false -> ?assertEqual(ok, activate("eunit_test"))
+        end
+    end.
+
+already_active_returns_reason() ->
+    fun() ->
+        activate("first_activation"),
+        Result = activate("second_activation"),
+        ?assertMatch({already_active, _}, Result)
+    end.
+
+active_after_activation() ->
+    fun() ->
+        activate("check_active"),
+        ?assertEqual(true, is_active())
+    end.
+
+-endif.

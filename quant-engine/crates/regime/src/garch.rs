@@ -82,20 +82,65 @@ impl Garch {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_garch_update() {
-        let mut g = Garch::new(0.00001, 0.1, 0.85);
-        let v = g.update(0.02); // 2% return
-        assert!(v > 0.0);
-        assert!(v > g.long_run_variance); // Shock should increase variance
+    fn sinusoidal_returns(n: usize, amplitude: f64) -> Vec<f64> {
+        (0..n).map(|i| (i as f64 * 0.7).sin() * amplitude).collect()
     }
 
     #[test]
-    fn test_garch_fit() {
-        let returns: Vec<f64> = (0..200).map(|i| ((i as f64 * 0.7).sin()) * 0.01).collect();
+    fn test_update_variance_positive() {
+        let mut g = Garch::new(0.00001, 0.1, 0.85);
+        for r in sinusoidal_returns(50, 0.01) {
+            let v = g.update(r);
+            assert!(v > 0.0, "variance must be positive, got {v}");
+        }
+    }
+
+    #[test]
+    fn test_shock_increases_variance() {
+        let mut g = Garch::new(0.00001, 0.1, 0.85);
+        let lr = g.long_run_variance;
+        let v = g.update(0.05); // large 5% return
+        assert!(v > lr, "large shock should raise variance above long-run: {v} vs {lr}");
+    }
+
+    #[test]
+    fn test_stationarity_constraint_after_fit() {
+        let returns = sinusoidal_returns(200, 0.01);
         let g = Garch::fit(&returns);
-        assert!(g.omega > 0.0);
+        assert!(g.alpha + g.beta < 1.0,
+            "stationarity violated: α+β = {}", g.alpha + g.beta);
+    }
+
+    #[test]
+    fn test_fit_omega_positive() {
+        let g = Garch::fit(&sinusoidal_returns(200, 0.01));
+        assert!(g.omega > 0.0, "ω must be positive, got {}", g.omega);
+    }
+
+    #[test]
+    fn test_forecast_reverts_to_long_run() {
+        let g = Garch::fit(&sinusoidal_returns(200, 0.01));
+        // Long-horizon forecast should approach long_run_variance
+        let f_far = g.forecast(100);
+        let f_near = g.forecast(1);
+        let lr = g.long_run_variance;
+        assert!((f_far - lr).abs() < (f_near - lr).abs(),
+            "far forecast {f_far} should be closer to LR {lr} than near {f_near}");
+    }
+
+    #[test]
+    fn test_forecast_positive() {
+        let g = Garch::fit(&sinusoidal_returns(200, 0.005));
+        for h in [1, 5, 10, 50] {
+            assert!(g.forecast(h) > 0.0, "forecast({h}) must be positive");
+        }
+    }
+
+    #[test]
+    fn test_fit_too_short_uses_defaults() {
+        let g = Garch::fit(&[0.01, 0.02]);
         assert!(g.alpha + g.beta < 1.0);
+        assert!(g.omega > 0.0);
     }
 }
 

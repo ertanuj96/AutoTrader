@@ -48,3 +48,7 @@ thiserror = "2"
 
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }
+
+# ── Test utilities (dev-only, shared) ──
+proptest = "1"
+approx = "0.5"

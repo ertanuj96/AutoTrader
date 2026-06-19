@@ -14,3 +14,7 @@ tracing.workspace = true
 chrono.workspace = true
 uuid.workspace = true
 
+[dev-dependencies]
+proptest = { workspace = true }
+approx = { workspace = true }
+

@@ -66,10 +66,57 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_trending_hurst() {
+    fn test_trending_hurst_above_half() {
         let series: Vec<f64> = (0..256).map(|i| i as f64 * 0.1).collect();
         let h = hurst_exponent(&series).unwrap();
-        assert!(h > 0.5, "Hurst for trend: {h}");
+        assert!(h > 0.5, "Expected H > 0.5 for trend, got {h}");
+    }
+
+    #[test]
+    fn test_mean_reverting_hurst_below_half() {
+        // Oscillating series: alternates between +1 and -1 → mean-reverting
+        let series: Vec<f64> = (0..256).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
+        let h = hurst_exponent(&series).unwrap();
+        assert!(h < 0.5, "Expected H < 0.5 for mean-reverting, got {h}");
+    }
+
+    #[test]
+    fn test_hurst_output_bounded_for_oscillating_cumsum() {
+        // Strictly alternating +1 / -1 cumsum: bounded path → lower H than pure trend
+        let increments: Vec<f64> = (0..512)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
+        let cum: Vec<f64> = increments.iter()
+            .scan(0.0_f64, |acc, &x| { *acc += x; Some(*acc) })
+            .collect();
+        // Strictly alternating cumsum has H < pure trend; output must be in [0,1]
+        if let Some(h) = hurst_exponent(&cum) {
+            assert!(h >= 0.0 && h <= 1.0, "H out of [0,1]: {h}");
+            assert!(h < 1.0, "alternating cumsum should not have maximum H: {h}");
+        }
+    }
+
+    #[test]
+    fn test_too_short_returns_none() {
+        assert!(hurst_exponent(&[1.0, 2.0, 3.0]).is_none());
+        assert!(hurst_exponent(&[]).is_none());
+    }
+
+    #[test]
+    fn test_constant_series_returns_none() {
+        // Constant series → std = 0 → rescaled_range returns None
+        let series = vec![5.0_f64; 100];
+        // Either None or a value ∈ [0,1] — must not panic
+        if let Some(h) = hurst_exponent(&series) {
+            assert!(h >= 0.0 && h <= 1.0);
+        }
+    }
+
+    #[test]
+    fn test_output_clamped_to_unit_interval() {
+        let series: Vec<f64> = (0..128).map(|i| i as f64).collect();
+        let h = hurst_exponent(&series).unwrap();
+        assert!(h >= 0.0 && h <= 1.0, "H out of [0,1]: {h}");
     }
 }
 

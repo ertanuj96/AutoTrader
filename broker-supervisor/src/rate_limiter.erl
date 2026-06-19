@@ -62,3 +62,58 @@ handle_call(_Request, _From, State) ->
 
 handle_cast(_Msg, State) -> {noreply, State}.
 handle_info(_Info, State) -> {noreply, State}.
+
+%% ── EUnit tests ──
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+setup() ->
+    case whereis(?MODULE) of
+        undefined -> {ok, _} = start_link();
+        _Pid      -> ok
+    end.
+
+teardown(_) ->
+    case whereis(?MODULE) of
+        undefined -> ok;
+        _         -> gen_server:stop(?MODULE)
+    end.
+
+rate_limiter_test_() ->
+    {setup, fun setup/0, fun teardown/1, [
+        {"known broker dhan acquires token", fun() ->
+            ?assertEqual(ok, try_acquire(dhan))
+        end},
+        {"known broker fyers acquires token", fun() ->
+            ?assertEqual(ok, try_acquire(fyers))
+        end},
+        {"unknown broker returns error", fun() ->
+            ?assertMatch({error, unknown_broker}, try_acquire(unknown_exchange))
+        end},
+        {"dhan rate limit: 9 tokens then throttled", fun() ->
+            %% Drain remaining tokens (we already consumed some above)
+            drain_bucket(dhan, 20),
+            %% Wait for refill
+            timer:sleep(1100),
+            %% Now consume exactly 9
+            Results = [try_acquire(dhan) || _ <- lists:seq(1, 9)],
+            OkCount = length([R || R <- Results, R =:= ok]),
+            ?assertEqual(9, OkCount),
+            %% 10th should be throttled
+            ?assertMatch({error, throttled}, try_acquire(dhan))
+        end},
+        {"fyers rate limit enforced independently", fun() ->
+            drain_bucket(fyers, 20),
+            timer:sleep(1100),
+            [ok = try_acquire(fyers) || _ <- lists:seq(1, 9)],
+            ?assertMatch({error, throttled}, try_acquire(fyers))
+        end}
+    ]}.
+
+drain_bucket(_Broker, 0) -> ok;
+drain_bucket(Broker, N) ->
+    try_acquire(Broker),
+    drain_bucket(Broker, N - 1).
+
+-endif.
