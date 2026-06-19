@@ -11,11 +11,12 @@ from pts.config import settings
 
 logger = logging.getLogger("pts.persistence")
 
-# Database names per PTS-003
+# Database names per PTS-003 + PTS-004 (v2)
 DB_MARKET = "pts_market"
 DB_TRADING = "pts_trading"
 DB_ANALYTICS = "pts_analytics"
 DB_SYSTEM = "pts_system"
+DB_QUANT = "pts_quant"
 
 
 class Persistence:
@@ -39,7 +40,7 @@ class Persistence:
         """Create databases and tables per PTS-003 (idempotent)."""
 
         # Create databases
-        for db in [DB_MARKET, DB_TRADING, DB_ANALYTICS, DB_SYSTEM]:
+        for db in [DB_MARKET, DB_TRADING, DB_ANALYTICS, DB_SYSTEM, DB_QUANT]:
             self._client.command(f"CREATE DATABASE IF NOT EXISTS {db}")
 
         # ── pts_market ──
@@ -180,7 +181,114 @@ class Persistence:
             ORDER BY (ts)
         """)
 
-        logger.info("✅ ClickHouse schema ready (4 databases, 8 tables)")
+        # ── v2: pts_market extensions ──
+
+        self._client.command(f"""
+            CREATE TABLE IF NOT EXISTS {DB_MARKET}.candle_data (
+                ts DateTime64(6),
+                symbol String,
+                exchange String,
+                timeframe String,
+                open Float64,
+                high Float64,
+                low Float64,
+                close Float64,
+                volume UInt64,
+                oi UInt64
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(ts)
+            ORDER BY (symbol, timeframe, ts)
+        """)
+
+        self._client.command(f"""
+            CREATE TABLE IF NOT EXISTS {DB_MARKET}.pcr_history (
+                ts DateTime64(6),
+                underlying String,
+                pcr_oi Float64,
+                pcr_volume Float64,
+                total_call_oi UInt64,
+                total_put_oi UInt64
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(ts)
+            ORDER BY (underlying, ts)
+        """)
+
+        self._client.command(f"""
+            CREATE TABLE IF NOT EXISTS {DB_MARKET}.vix_history (
+                ts DateTime64(6),
+                vix_value Float64,
+                vix_change_pct Float64
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(ts)
+            ORDER BY (ts)
+        """)
+
+        self._client.command(f"""
+            CREATE TABLE IF NOT EXISTS {DB_MARKET}.commodity_data (
+                ts DateTime64(6),
+                symbol String,
+                ltp Float64,
+                open Float64,
+                high Float64,
+                low Float64,
+                close Float64,
+                volume UInt64
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(ts)
+            ORDER BY (symbol, ts)
+        """)
+
+        self._client.command(f"""
+            CREATE TABLE IF NOT EXISTS {DB_MARKET}.instrument_master (
+                symbol String,
+                exchange String,
+                segment String,
+                instrument_type String,
+                lot_size Float64,
+                expiry Date,
+                strike Float64,
+                option_type String,
+                underlying String,
+                updated_at DateTime64(6)
+            ) ENGINE = ReplacingMergeTree(updated_at)
+            ORDER BY (symbol, exchange)
+        """)
+
+        # ── v2: pts_quant ──
+
+        self._client.command(f"""
+            CREATE TABLE IF NOT EXISTS {DB_QUANT}.regime_history (
+                ts DateTime64(6),
+                symbol String,
+                timeframe String,
+                p_trending Float64,
+                p_ranging Float64,
+                p_high_vol Float64,
+                hurst_exponent Float64,
+                garch_variance Float64,
+                regime String
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(ts)
+            ORDER BY (symbol, timeframe, ts)
+        """)
+
+        self._client.command(f"""
+            CREATE TABLE IF NOT EXISTS {DB_QUANT}.signal_scores (
+                signal_id UUID,
+                ts DateTime64(6),
+                symbol String,
+                confidence Float64,
+                regime_contribution Float64,
+                trend_contribution Float64,
+                reversal_contribution Float64,
+                movement_contribution Float64,
+                kelly_lots UInt32,
+                payoff_ratio Float64
+            ) ENGINE = MergeTree()
+            ORDER BY (ts)
+        """)
+
+        logger.info("✅ ClickHouse schema ready (5 databases, 15 tables)")
 
     # ── Helper: convert ms timestamp to DateTime64 string ──
 

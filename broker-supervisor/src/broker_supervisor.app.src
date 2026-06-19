@@ -1,0 +1,24 @@
+{application, broker_supervisor, [
+    {description, "AutoTrader Broker Supervisor — fault-tolerant broker connection management"},
+    {vsn, "0.1.0"},
+    {registered, [broker_sup, kill_switch, rate_limiter]},
+    {mod, {broker_app, []}},
+    {applications, [kernel, stdlib, nats]},
+    {env, [
+        {nats_url, "nats://localhost:4222"},
+        {brokers, [
+            {dhan, #{api_key => "", api_secret => "", max_ops => 10}},
+            {fyers, #{app_id => "", secret_key => "", max_ops => 10}},
+            {indstocks, #{api_token => "", max_ops => 10}}
+        ]},
+        {max_daily_loss, 10000},
+        {kill_switch_enabled, true}
+    ]},
+    {modules, [
+        broker_app,
+        broker_sup,
+        broker_session,
+        rate_limiter,
+        kill_switch
+    ]}
+]}.
