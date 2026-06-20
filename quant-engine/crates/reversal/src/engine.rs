@@ -33,12 +33,7 @@ impl ReversalEngine {
     ///
     /// * `hazard_rate` – BOCD prior hazard (e.g. 0.01).
     /// * `horizon_bars` – how many bars ahead to forecast reversal probability.
-    pub fn new(
-        symbol: String,
-        timeframe: Timeframe,
-        hazard_rate: f64,
-        horizon_bars: u32,
-    ) -> Self {
+    pub fn new(symbol: String, timeframe: Timeframe, hazard_rate: f64, horizon_bars: u32) -> Self {
         Self {
             symbol,
             timeframe,
@@ -64,7 +59,8 @@ impl ReversalEngine {
                 let ret = (price / prev).ln();
                 self.returns_buffer.push(ret);
                 if self.returns_buffer.len() > BUFFER_MAX {
-                    self.returns_buffer.drain(0..self.returns_buffer.len() - BUFFER_MAX);
+                    self.returns_buffer
+                        .drain(0..self.returns_buffer.len() - BUFFER_MAX);
                 }
             }
         }
@@ -74,7 +70,11 @@ impl ReversalEngine {
         self.oi_buffer.push(oi);
         self.volume_buffer.push(volume);
 
-        for buf in [&mut self.price_buffer, &mut self.oi_buffer, &mut self.volume_buffer] {
+        for buf in [
+            &mut self.price_buffer,
+            &mut self.oi_buffer,
+            &mut self.volume_buffer,
+        ] {
             if buf.len() > BUFFER_MAX {
                 buf.drain(0..buf.len() - BUFFER_MAX);
             }
@@ -89,8 +89,7 @@ impl ReversalEngine {
         let n_std = 20.min(self.returns_buffer.len());
         let recent = &self.returns_buffer[self.returns_buffer.len() - n_std..];
         let mean: f64 = recent.iter().sum::<f64>() / n_std as f64;
-        let var: f64 =
-            recent.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / n_std as f64;
+        let var: f64 = recent.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / n_std as f64;
         let std = var.sqrt().max(1e-10);
         let last_ret = *self.returns_buffer.last().unwrap();
         let normalized = last_ret / std;
@@ -102,10 +101,8 @@ impl ReversalEngine {
         let p_reversal = self.bocd.update(normalized);
 
         // ── 7. Compute divergence scores ─────────────────────────────────────
-        let oi_div = divergence_score(&self.price_buffer, &self.oi_buffer)
-            .clamp(-1.0, 1.0);
-        let vol_div = divergence_score(&self.price_buffer, &self.volume_buffer)
-            .clamp(-1.0, 1.0);
+        let oi_div = divergence_score(&self.price_buffer, &self.oi_buffer).clamp(-1.0, 1.0);
+        let vol_div = divergence_score(&self.price_buffer, &self.volume_buffer).clamp(-1.0, 1.0);
 
         Some(ReversalEvent {
             event_id: Uuid::new_v4(),
@@ -152,7 +149,8 @@ mod tests {
             if let Some(ev) = ev {
                 assert!(
                     ev.p_reversal >= 0.0 && ev.p_reversal <= 1.0,
-                    "p_reversal={} out of [0,1]", ev.p_reversal
+                    "p_reversal={} out of [0,1]",
+                    ev.p_reversal
                 );
             }
         }
@@ -173,10 +171,16 @@ mod tests {
             price += 50.0; // +50 per bar, way above normal ±10 noise
             let ev = e.update(price, 1_000_000.0, 50_000.0);
             if let Some(ev) = ev {
-                if ev.cusum_triggered { triggered = true; break; }
+                if ev.cusum_triggered {
+                    triggered = true;
+                    break;
+                }
             }
         }
-        assert!(triggered, "CUSUM should trigger on sustained large upward drift");
+        assert!(
+            triggered,
+            "CUSUM should trigger on sustained large upward drift"
+        );
     }
 
     #[test]
@@ -187,7 +191,8 @@ mod tests {
             if let Some(ev) = e.update(18000.0 + i as f64, oi, 50_000.0) {
                 assert!(
                     ev.oi_divergence >= -1.0 && ev.oi_divergence <= 1.0,
-                    "oi_divergence={} out of bounds", ev.oi_divergence
+                    "oi_divergence={} out of bounds",
+                    ev.oi_divergence
                 );
             }
         }

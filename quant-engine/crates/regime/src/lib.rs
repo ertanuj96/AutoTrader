@@ -6,10 +6,9 @@
 //!   2. Hurst exponent via Rescaled Range (R/S) analysis
 //!   3. GARCH(1,1) for volatility clustering detection
 
+pub mod engine;
+pub mod garch;
 pub mod hmm;
 pub mod hurst;
-pub mod garch;
-pub mod engine;
 
 pub use engine::RegimeEngine;
-

@@ -16,9 +16,11 @@ pub fn kelly_fraction(win_probability: f64, payoff_ratio: f64, max_fraction: f64
 
 /// Convert Kelly fraction to lot size given capital and lot value.
 pub fn kelly_lots(fraction: f64, capital: f64, lot_value: f64, max_lots: u32) -> u32 {
-    if lot_value <= 0.0 { return 0; }
+    if lot_value <= 0.0 {
+        return 0;
+    }
     let lots = (fraction * capital / lot_value).floor() as u32;
-    lots.min(max_lots).max(0)
+    lots.min(max_lots)
 }
 
 #[cfg(test)]
@@ -112,4 +114,3 @@ mod tests {
         }
     }
 }
-

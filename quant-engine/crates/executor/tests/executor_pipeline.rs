@@ -25,7 +25,11 @@ fn build_risk_check(state: &PortfolioState) -> RiskCheck {
     }
 }
 
-fn propose_trade(win_prob: f64, payoff_ratio: f64, state: &PortfolioState) -> (u32, Result<(), String>) {
+fn propose_trade(
+    win_prob: f64,
+    payoff_ratio: f64,
+    state: &PortfolioState,
+) -> (u32, Result<(), String>) {
     let lot_value = 50_000.0; // typical Nifty lot
     let fraction = kelly_fraction(win_prob, payoff_ratio, 0.10); // max 10% Kelly
     let proposed_lots = kelly_lots(fraction, state.capital, lot_value, 15);
@@ -61,8 +65,8 @@ fn test_daily_loss_breached_blocks_even_good_signal() {
 #[test]
 fn test_drawdown_breached_blocks_trading() {
     let state = PortfolioState {
-        capital: 930_000.0,   // 7% drawdown from 1M peak
-        daily_pnl: -5_000.0,  // under daily loss limit
+        capital: 930_000.0,  // 7% drawdown from 1M peak
+        daily_pnl: -5_000.0, // under daily loss limit
         peak_equity: 1_000_000.0,
     };
     let (_, result) = propose_trade(0.6, 1.2, &state);
@@ -92,7 +96,10 @@ fn test_kelly_lots_never_exceeds_max_across_scenarios() {
     for (win_prob, payoff, capital) in scenarios {
         let frac = kelly_fraction(win_prob, payoff, 0.10);
         let lots = kelly_lots(frac, capital, lot_value, 15);
-        assert!(lots <= 15, "lots {lots} exceeded max for scenario ({win_prob}, {payoff}, {capital})");
+        assert!(
+            lots <= 15,
+            "lots {lots} exceeded max for scenario ({win_prob}, {payoff}, {capital})"
+        );
     }
 }
 

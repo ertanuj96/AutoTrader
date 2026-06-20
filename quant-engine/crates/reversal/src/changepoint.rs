@@ -26,7 +26,12 @@ struct NigParams {
 impl NigParams {
     /// Standard NIG prior (zero mean, low precision, vague).
     fn prior() -> Self {
-        Self { mu: 0.0, kappa: 1.0, alpha: 2.0, beta: 0.001 }
+        Self {
+            mu: 0.0,
+            kappa: 1.0,
+            alpha: 2.0,
+            beta: 0.001,
+        }
     }
 
     /// Conjugate Bayesian update with one new observation.
@@ -34,9 +39,13 @@ impl NigParams {
         let kappa_new = self.kappa + 1.0;
         let mu_new = (self.kappa * self.mu + x) / kappa_new;
         let alpha_new = self.alpha + 0.5;
-        let beta_new =
-            self.beta + (self.kappa * (x - self.mu).powi(2)) / (2.0 * kappa_new);
-        Self { mu: mu_new, kappa: kappa_new, alpha: alpha_new, beta: beta_new }
+        let beta_new = self.beta + (self.kappa * (x - self.mu).powi(2)) / (2.0 * kappa_new);
+        Self {
+            mu: mu_new,
+            kappa: kappa_new,
+            alpha: alpha_new,
+            beta: beta_new,
+        }
     }
 
     /// Log predictive probability p(x | data so far) under Student-t marginal.
@@ -44,8 +53,7 @@ impl NigParams {
     /// df = 2α,  location = μ,  scale² = β(κ+1)/(α·κ)
     fn log_pred(&self, x: f64) -> f64 {
         let df = 2.0 * self.alpha;
-        let scale_sq =
-            (self.beta * (self.kappa + 1.0)) / (self.alpha * self.kappa);
+        let scale_sq = (self.beta * (self.kappa + 1.0)) / (self.alpha * self.kappa);
         let scale = scale_sq.sqrt().max(1e-12);
         match StudentsT::new(self.mu, scale, df) {
             Ok(dist) => dist.ln_pdf(x),
@@ -57,9 +65,13 @@ impl NigParams {
 // ─── Numerically stable log-sum-exp ──────────────────────────────────────────
 
 fn log_sum_exp(vals: &[f64]) -> f64 {
-    if vals.is_empty() { return f64::NEG_INFINITY; }
+    if vals.is_empty() {
+        return f64::NEG_INFINITY;
+    }
     let max = vals.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    if !max.is_finite() { return f64::NEG_INFINITY; }
+    if !max.is_finite() {
+        return f64::NEG_INFINITY;
+    }
     max + vals.iter().map(|&v| (v - max).exp()).sum::<f64>().ln()
 }
 
@@ -119,9 +131,7 @@ impl ChangePointDetector {
         let log_preds: Vec<f64> = self.nig.iter().map(|nig| nig.log_pred(x)).collect();
 
         // ── 2. Changepoint mass: Σ_r P(r) · p(x|r) · H ─────────────────────
-        let cp_terms: Vec<f64> = (0..n)
-            .map(|r| self.log_probs[r] + log_preds[r])
-            .collect();
+        let cp_terms: Vec<f64> = (0..n).map(|r| self.log_probs[r] + log_preds[r]).collect();
         let log_cp_total = log_sum_exp(&cp_terms) + log_h;
 
         // ── 3. Build new hypothesis vector (capped at MAX_RUN_LENGTH + 1) ───
@@ -146,8 +156,7 @@ impl ChangePointDetector {
                 .map(|r| self.log_probs[r] + log_preds[r] + log_1mh)
                 .collect();
             let lse = log_sum_exp(&overflow);
-            new_log_probs[MAX_RUN_LENGTH] =
-                log_sum_exp(&[new_log_probs[MAX_RUN_LENGTH], lse]);
+            new_log_probs[MAX_RUN_LENGTH] = log_sum_exp(&[new_log_probs[MAX_RUN_LENGTH], lse]);
             // NIG for this bucket stays the one we already pushed (approximate)
         }
 
@@ -203,10 +212,7 @@ mod tests {
             // Inject occasional shocks to keep it interesting
             let x = if i % 17 == 0 { 10.0 } else { 0.0 };
             let p = d.update(x);
-            assert!(
-                p >= 0.0 && p <= 1.0,
-                "p={p} out of [0,1] at step {i}"
-            );
+            assert!((0.0..=1.0).contains(&p), "p={p} out of [0,1] at step {i}");
         }
     }
 
@@ -267,10 +273,7 @@ mod tests {
             // Inject one shock at midpoint to test MAX_RUN_LENGTH logic
             let x = if i == 300 { 50.0 } else { 0.0 };
             let p = d.update(x);
-            assert!(
-                p >= 0.0 && p <= 1.0,
-                "p={p} out of [0,1] at step {i}"
-            );
+            assert!((0.0..=1.0).contains(&p), "p={p} out of [0,1] at step {i}");
         }
         // Memory is bounded by MAX_RUN_LENGTH + 1
         assert!(d.log_probs.len() <= MAX_RUN_LENGTH + 1);

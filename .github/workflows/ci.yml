@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same ref when a new commit is pushed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Rust quant-engine — fmt, build, test (workspace)
+  # ───────────────────────────────────────────────────────────────────────────
+  rust:
+    name: Rust (quant-engine)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: quant-engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: quant-engine
+      - name: Format check
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace --verbose
+      - name: Build release
+        run: cargo build --workspace --release
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Go ingestion — vet, build, test
+  # ───────────────────────────────────────────────────────────────────────────
+  go:
+    name: Go (ingestion)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ingestion
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: ingestion/go.sum
+      - name: Download modules
+        run: go mod download
+      - name: Vet
+        run: go vet ./...
+      - name: Build
+        run: go build ./...
+      - name: Test
+        run: go test -race -count=1 ./...
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Python — dashboard-api + trading-core
+  # ───────────────────────────────────────────────────────────────────────────
+  python-api:
+    name: Python (dashboard-api)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: Test
+        run: pytest -q
+
+  python-core:
+    name: Python (trading-core)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trading-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pytest pytest-asyncio
+      - name: Test
+        run: pytest -q
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # React dashboard-ui — vitest
+  # ───────────────────────────────────────────────────────────────────────────
+  ui:
+    name: React (dashboard-ui)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: dashboard-ui/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm run test
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Erlang/OTP broker-supervisor — compile + eunit
+  # ───────────────────────────────────────────────────────────────────────────
+  erlang:
+    name: Erlang (broker-supervisor)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: broker-supervisor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+          rebar3-version: "3.23"
+      - name: Compile
+        run: rebar3 compile
+      - name: EUnit
+        run: rebar3 eunit

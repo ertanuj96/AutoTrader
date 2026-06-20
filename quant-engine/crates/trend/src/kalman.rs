@@ -4,7 +4,7 @@
 //! Transition: price_{t+1} = price_t + slope_t, slope_{t+1} = slope_t
 //! Observation: z_t = price_t + noise
 
-use nalgebra::{Matrix2, Vector2, Matrix1x2, Matrix1};
+use nalgebra::{Matrix1, Matrix1x2, Matrix2, Vector2};
 
 /// 1D Kalman filter with constant velocity model.
 pub struct KalmanFilter {
@@ -55,8 +55,12 @@ impl KalmanFilter {
         (self.state[0], self.state[1], slope_uncertainty)
     }
 
-    pub fn slope(&self) -> f64 { self.state[1] }
-    pub fn price(&self) -> f64 { self.state[0] }
+    pub fn slope(&self) -> f64 {
+        self.state[1]
+    }
+    pub fn price(&self) -> f64 {
+        self.state[0]
+    }
 }
 
 #[cfg(test)]
@@ -119,4 +123,3 @@ mod tests {
         assert!(kf.slope() > 0.0, "noisy uptrend slope = {}", kf.slope());
     }
 }
-

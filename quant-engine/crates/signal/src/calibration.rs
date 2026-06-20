@@ -6,8 +6,18 @@ pub struct CalibrationTracker {
     predictions: Vec<(f64, bool)>, // (confidence, was_correct)
 }
 
+impl Default for CalibrationTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CalibrationTracker {
-    pub fn new() -> Self { Self { predictions: Vec::new() } }
+    pub fn new() -> Self {
+        Self {
+            predictions: Vec::new(),
+        }
+    }
 
     pub fn record(&mut self, confidence: f64, was_correct: bool) {
         self.predictions.push((confidence, was_correct));
@@ -18,8 +28,12 @@ impl CalibrationTracker {
 
     /// Brier score: lower is better. 0 = perfect, 0.25 = random.
     pub fn brier_score(&self) -> f64 {
-        if self.predictions.is_empty() { return 0.25; }
-        let sum: f64 = self.predictions.iter()
+        if self.predictions.is_empty() {
+            return 0.25;
+        }
+        let sum: f64 = self
+            .predictions
+            .iter()
             .map(|(c, correct)| {
                 let outcome = if *correct { 1.0 } else { 0.0 };
                 (c - outcome).powi(2)
@@ -28,8 +42,12 @@ impl CalibrationTracker {
         sum / self.predictions.len() as f64
     }
 
-    pub fn len(&self) -> usize { self.predictions.len() }
-    pub fn is_empty(&self) -> bool { self.predictions.is_empty() }
+    pub fn len(&self) -> usize {
+        self.predictions.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.predictions.is_empty()
+    }
 }
 
 #[cfg(test)]
@@ -46,7 +64,9 @@ mod tests {
     fn test_perfect_predictor_score_near_zero() {
         let mut ct = CalibrationTracker::new();
         // Always predict 1.0 and always be correct
-        for _ in 0..100 { ct.record(1.0, true); }
+        for _ in 0..100 {
+            ct.record(1.0, true);
+        }
         assert!(ct.brier_score() < 0.01, "score = {}", ct.brier_score());
     }
 
@@ -54,7 +74,9 @@ mod tests {
     fn test_always_wrong_score_near_one() {
         let mut ct = CalibrationTracker::new();
         // Predict 1.0 but always wrong
-        for _ in 0..100 { ct.record(1.0, false); }
+        for _ in 0..100 {
+            ct.record(1.0, false);
+        }
         assert!(ct.brier_score() > 0.9, "score = {}", ct.brier_score());
     }
 
@@ -62,7 +84,9 @@ mod tests {
     fn test_random_50pct_predictor_near_quarter() {
         let mut ct = CalibrationTracker::new();
         // 50% confidence, alternating correct/incorrect
-        for i in 0..1000 { ct.record(0.5, i % 2 == 0); }
+        for i in 0..1000 {
+            ct.record(0.5, i % 2 == 0);
+        }
         let bs = ct.brier_score();
         assert!((bs - 0.25).abs() < 0.01, "Brier = {bs}");
     }
@@ -84,7 +108,6 @@ mod tests {
             ct.record((i % 11) as f64 / 10.0, i % 2 == 0);
         }
         let s = ct.brier_score();
-        assert!(s >= 0.0 && s <= 1.0, "score = {s}");
+        assert!((0.0..=1.0).contains(&s), "score = {s}");
     }
 }
-

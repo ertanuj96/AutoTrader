@@ -4,4 +4,3 @@
 pub fn should_trade(confidence: f64, threshold: f64) -> bool {
     confidence >= threshold
 }
-

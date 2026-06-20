@@ -4,16 +4,14 @@
 //! would use them at runtime, ensuring the pipeline produces valid output
 //! without panicking on realistic return series shapes.
 
-use autotrader_regime::{
-    garch::Garch,
-    hmm::GaussianHMM,
-    hurst::hurst_exponent,
-};
+use autotrader_regime::{garch::Garch, hmm::GaussianHMM, hurst::hurst_exponent};
 
 // ── Fixtures ──
 
 fn make_trending_returns(n: usize) -> Vec<f64> {
-    (0..n).map(|i| 0.0008 + (i as f64 * 0.17).sin() * 0.0003).collect()
+    (0..n)
+        .map(|i| 0.0008 + (i as f64 * 0.17).sin() * 0.0003)
+        .collect()
 }
 
 fn make_ranging_returns(n: usize) -> Vec<f64> {
@@ -60,7 +58,12 @@ fn run_regime_pipeline(prices: &[f64]) -> RegimeOutput {
         .map(|(i, _)| i)
         .unwrap_or(0);
 
-    RegimeOutput { hurst, garch_var, state_probs, most_likely_state }
+    RegimeOutput {
+        hurst,
+        garch_var,
+        state_probs,
+        most_likely_state,
+    }
 }
 
 // ── Tests ──
@@ -77,7 +80,7 @@ fn test_pipeline_trending_produces_valid_output() {
     assert!((prob_sum - 1.0).abs() < 1e-9, "probs sum = {prob_sum}");
     assert!(out.most_likely_state < 3);
     if let Some(h) = out.hurst {
-        assert!(h >= 0.0 && h <= 1.0, "h = {h}");
+        assert!((0.0..=1.0).contains(&h), "h = {h}");
     }
 }
 
@@ -105,7 +108,8 @@ fn test_pipeline_high_vol_garch_variance_elevated() {
     assert!(
         high_out.garch_var > low_out.garch_var,
         "high-vol GARCH {:.6} should exceed low-vol {:.6}",
-        high_out.garch_var, low_out.garch_var
+        high_out.garch_var,
+        low_out.garch_var
     );
 }
 
@@ -136,5 +140,8 @@ fn test_garch_forecast_consistency() {
     let f10 = garch.forecast(10);
     let f50 = garch.forecast(50);
     assert!(f1 > f10, "variance should decay: f1={f1} f10={f10}");
-    assert!(f10 > f50, "variance should continue decaying: f10={f10} f50={f50}");
+    assert!(
+        f10 > f50,
+        "variance should continue decaying: f10={f10} f50={f50}"
+    );
 }

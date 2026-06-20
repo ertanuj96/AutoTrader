@@ -3,7 +3,9 @@
 //! Uses Bayesian updating: P(signal_correct | evidence) ∝ P(evidence | correct) * P(correct)
 //! Each engine contributes a likelihood ratio that updates the prior.
 
-use autotrader_common::{RegimeEvent, TrendEvent, ReversalEvent, MovementEvent, MarketRegime, TrendDirection};
+use autotrader_common::{
+    MarketRegime, MovementEvent, RegimeEvent, ReversalEvent, TrendDirection, TrendEvent,
+};
 
 /// Fuse all engine outputs into a single confidence score [0.0, 1.0].
 pub fn bayesian_fusion(
@@ -39,12 +41,28 @@ pub fn bayesian_fusion(
     let reversal_contrib = reversal_lr - 1.0;
 
     // Movement contribution: sufficient expected range (vs cost) boosts confidence
-    let range_ratio = if movement.atr > 0.0 { movement.expected_range / movement.atr } else { 1.0 };
-    let movement_lr = if range_ratio > 1.2 { 1.2 } else if range_ratio < 0.5 { 0.6 } else { 1.0 };
+    let range_ratio = if movement.atr > 0.0 {
+        movement.expected_range / movement.atr
+    } else {
+        1.0
+    };
+    let movement_lr = if range_ratio > 1.2 {
+        1.2
+    } else if range_ratio < 0.5 {
+        0.6
+    } else {
+        1.0
+    };
     posterior = update_bayesian(posterior, movement_lr);
     let movement_contrib = movement_lr - 1.0;
 
-    (posterior.clamp(0.0, 1.0), regime_contrib, trend_contrib, reversal_contrib, movement_contrib)
+    (
+        posterior.clamp(0.0, 1.0),
+        regime_contrib,
+        trend_contrib,
+        reversal_contrib,
+        movement_contrib,
+    )
 }
 
 /// Bayesian update: P(H|E) = P(E|H)*P(H) / [P(E|H)*P(H) + P(E|¬H)*P(¬H)]
@@ -58,7 +76,7 @@ fn update_bayesian(prior: f64, likelihood_ratio: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use autotrader_common::{MarketRegime, TrendDirection, Timeframe};
+    use autotrader_common::{MarketRegime, Timeframe, TrendDirection};
     use chrono::Utc;
     use uuid::Uuid;
 
@@ -127,7 +145,7 @@ mod tests {
         let rev = make_reversal(0.1);
         let m = make_movement(100.0, 50.0);
         let (conf, rc, tc, revc, mc) = bayesian_fusion(&r, &t, &rev, &m, 0.5);
-        assert!(conf >= 0.0 && conf <= 1.0, "conf = {conf}");
+        assert!((0.0..=1.0).contains(&conf), "conf = {conf}");
         // Contributions are unbounded but fusion output must be clamped
         let _ = (rc, tc, revc, mc);
     }
@@ -141,7 +159,10 @@ mod tests {
         let m = make_movement(120.0, 80.0);
         let (conf_good, _, _, _, _) = bayesian_fusion(&r_good, &t, &rev, &m, 0.5);
         let (conf_bad, _, _, _, _) = bayesian_fusion(&r_bad, &t, &rev, &m, 0.5);
-        assert!(conf_good > conf_bad, "trending {conf_good} should beat ranging {conf_bad}");
+        assert!(
+            conf_good > conf_bad,
+            "trending {conf_good} should beat ranging {conf_bad}"
+        );
     }
 
     #[test]
@@ -153,7 +174,10 @@ mod tests {
         let m = make_movement(100.0, 50.0);
         let (conf_normal, _, _, _, _) = bayesian_fusion(&r_normal, &t, &rev, &m, 0.5);
         let (conf_hv, _, _, _, _) = bayesian_fusion(&r_hv, &t, &rev, &m, 0.5);
-        assert!(conf_normal > conf_hv, "HV should reduce confidence: {conf_hv} vs {conf_normal}");
+        assert!(
+            conf_normal > conf_hv,
+            "HV should reduce confidence: {conf_hv} vs {conf_normal}"
+        );
     }
 
     #[test]
@@ -163,8 +187,10 @@ mod tests {
         let m = make_movement(100.0, 50.0);
         let (conf_low_rev, _, _, _, _) = bayesian_fusion(&r, &t, &make_reversal(0.05), &m, 0.5);
         let (conf_high_rev, _, _, _, _) = bayesian_fusion(&r, &t, &make_reversal(0.9), &m, 0.5);
-        assert!(conf_low_rev > conf_high_rev,
-            "low rev {conf_low_rev} should beat high rev {conf_high_rev}");
+        assert!(
+            conf_low_rev > conf_high_rev,
+            "low rev {conf_low_rev} should beat high rev {conf_high_rev}"
+        );
     }
 
     #[test]
@@ -174,7 +200,9 @@ mod tests {
         let rev = make_reversal(0.0);
         let m = make_movement(200.0, 50.0);
         let (conf, _, _, _, _) = bayesian_fusion(&r, &t, &rev, &m, 0.0);
-        assert!(conf < 0.01, "zero prior should yield near-zero posterior: {conf}");
+        assert!(
+            conf < 0.01,
+            "zero prior should yield near-zero posterior: {conf}"
+        );
     }
 }
-

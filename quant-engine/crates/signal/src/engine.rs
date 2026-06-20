@@ -5,19 +5,19 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use async_nats::Client;
-use futures::StreamExt as _;
 use chrono::Utc;
-use tracing::{info, warn, debug};
+use futures::StreamExt as _;
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use autotrader_common::{
-    RegimeEvent, TrendEvent, ReversalEvent, MovementEvent, ScoredSignal,
-    subjects, Side, TrendDirection,
+    subjects, MovementEvent, RegimeEvent, ReversalEvent, ScoredSignal, Side, TrendDirection,
+    TrendEvent,
 };
 
-use crate::fusion::bayesian_fusion;
-use crate::filter::should_trade;
 use crate::calibration::CalibrationTracker;
+use crate::filter::should_trade;
+use crate::fusion::bayesian_fusion;
 
 /// Events older than this are considered stale and will not be fused.
 const STALENESS_SECS: u64 = 30;
@@ -25,22 +25,29 @@ const STALENESS_SECS: u64 = 30;
 // ─── Per-symbol-timeframe state ───────────────────────────────────────────────
 
 struct SymbolTimeframeState {
-    regime:   Option<(RegimeEvent,   Instant)>,
-    trend:    Option<(TrendEvent,    Instant)>,
+    regime: Option<(RegimeEvent, Instant)>,
+    trend: Option<(TrendEvent, Instant)>,
     reversal: Option<(ReversalEvent, Instant)>,
     movement: Option<(MovementEvent, Instant)>,
 }
 
 impl SymbolTimeframeState {
     fn new() -> Self {
-        Self { regime: None, trend: None, reversal: None, movement: None }
+        Self {
+            regime: None,
+            trend: None,
+            reversal: None,
+            movement: None,
+        }
     }
 
     /// True if all four engines have fresh data.
     fn all_fresh(&self, staleness: Duration) -> bool {
         let now = Instant::now();
         fn is_fresh<T>(opt: &Option<(T, Instant)>, now: Instant, staleness: Duration) -> bool {
-            opt.as_ref().map(|(_, t)| now.duration_since(*t) < staleness).unwrap_or(false)
+            opt.as_ref()
+                .map(|(_, t)| now.duration_since(*t) < staleness)
+                .unwrap_or(false)
         }
         is_fresh(&self.regime, now, staleness)
             && is_fresh(&self.trend, now, staleness)
@@ -85,8 +92,8 @@ impl SignalEngine {
     /// Subscribe to the four quant engine subjects, fuse events, and publish
     /// `ScoredSignal`s to `pts.quant.signal`.
     pub async fn run(mut self, nc: Client) -> anyhow::Result<()> {
-        let mut sub_regime   = nc.subscribe(subjects::REGIME).await?;
-        let mut sub_trend    = nc.subscribe(subjects::TREND).await?;
+        let mut sub_regime = nc.subscribe(subjects::REGIME).await?;
+        let mut sub_trend = nc.subscribe(subjects::TREND).await?;
         let mut sub_reversal = nc.subscribe(subjects::REVERSAL).await?;
         let mut sub_movement = nc.subscribe(subjects::MOVEMENT).await?;
 
@@ -137,8 +144,8 @@ impl SignalEngine {
             _ => return,
         };
 
-        let regime   = &st.regime.as_ref().unwrap().0;
-        let trend    = &st.trend.as_ref().unwrap().0;
+        let regime = &st.regime.as_ref().unwrap().0;
+        let trend = &st.trend.as_ref().unwrap().0;
         let reversal = &st.reversal.as_ref().unwrap().0;
         let movement = &st.movement.as_ref().unwrap().0;
 
@@ -198,8 +205,8 @@ impl SignalEngine {
     /// if confidence exceeds the threshold, else `None`.
     pub fn fuse(
         &self,
-        regime:   &RegimeEvent,
-        trend:    &TrendEvent,
+        regime: &RegimeEvent,
+        trend: &TrendEvent,
         reversal: &ReversalEvent,
         movement: &MovementEvent,
     ) -> Option<(f64, f64, f64, f64, f64)> {
@@ -226,7 +233,7 @@ impl SignalEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use autotrader_common::{MarketRegime, TrendDirection, Timeframe};
+    use autotrader_common::{MarketRegime, Timeframe, TrendDirection};
     use chrono::Utc;
     use uuid::Uuid;
 
@@ -236,37 +243,59 @@ mod tests {
 
     fn regime(r: MarketRegime, p_trending: f64) -> RegimeEvent {
         RegimeEvent {
-            event_id: Uuid::new_v4(), timestamp: Utc::now(),
-            symbol: "NIFTY".into(), timeframe: Timeframe::Min5,
-            p_trending, p_ranging: 1.0 - p_trending, p_high_vol: 0.0,
-            hurst_exponent: 0.6, garch_variance: 0.0001, regime: r,
+            event_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            symbol: "NIFTY".into(),
+            timeframe: Timeframe::Min5,
+            p_trending,
+            p_ranging: 1.0 - p_trending,
+            p_high_vol: 0.0,
+            hurst_exponent: 0.6,
+            garch_variance: 0.0001,
+            regime: r,
         }
     }
 
     fn trend(d: TrendDirection, strength: f64) -> TrendEvent {
         TrendEvent {
-            event_id: Uuid::new_v4(), timestamp: Utc::now(),
-            symbol: "NIFTY".into(), timeframe: Timeframe::Min5,
-            direction: d, strength, kalman_slope: 0.001, kalman_uncertainty: 0.0001,
-            regression_r_squared: 0.8, mann_kendall_p_value: 0.02,
+            event_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            symbol: "NIFTY".into(),
+            timeframe: Timeframe::Min5,
+            direction: d,
+            strength,
+            kalman_slope: 0.001,
+            kalman_uncertainty: 0.0001,
+            regression_r_squared: 0.8,
+            mann_kendall_p_value: 0.02,
         }
     }
 
     fn reversal(p_rev: f64) -> ReversalEvent {
         ReversalEvent {
-            event_id: Uuid::new_v4(), timestamp: Utc::now(),
-            symbol: "NIFTY".into(), timeframe: Timeframe::Min5,
-            p_reversal: p_rev, horizon_bars: 5, cusum_triggered: false,
-            oi_divergence: 0.0, volume_divergence: 0.0,
+            event_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            symbol: "NIFTY".into(),
+            timeframe: Timeframe::Min5,
+            p_reversal: p_rev,
+            horizon_bars: 5,
+            cusum_triggered: false,
+            oi_divergence: 0.0,
+            volume_divergence: 0.0,
         }
     }
 
     fn movement(range: f64, atr: f64) -> MovementEvent {
         MovementEvent {
-            event_id: Uuid::new_v4(), timestamp: Utc::now(),
-            symbol: "NIFTY".into(), timeframe: Timeframe::Min5,
-            expected_range: range, atr, garch_vol: 0.01,
-            realized_vol: 0.012, implied_move: None,
+            event_id: Uuid::new_v4(),
+            timestamp: Utc::now(),
+            symbol: "NIFTY".into(),
+            timeframe: Timeframe::Min5,
+            expected_range: range,
+            atr,
+            garch_vol: 0.01,
+            realized_vol: 0.012,
+            implied_move: None,
         }
     }
 
@@ -279,9 +308,12 @@ mod tests {
             &reversal(0.05),
             &movement(120.0, 80.0),
         );
-        assert!(result.is_some(), "should produce a signal with all-good inputs");
+        assert!(
+            result.is_some(),
+            "should produce a signal with all-good inputs"
+        );
         let (conf, _, _, _, _) = result.unwrap();
-        assert!(conf >= 0.0 && conf <= 1.0);
+        assert!((0.0..=1.0).contains(&conf));
     }
 
     #[test]
@@ -296,7 +328,7 @@ mod tests {
         // With all-bad inputs posterior should fall below 0.55 threshold
         if let Some((conf, _, _, _, _)) = result {
             // If it does pass the threshold, confidence should still be in [0,1]
-            assert!(conf >= 0.0 && conf <= 1.0);
+            assert!((0.0..=1.0).contains(&conf));
         }
         // (result may be None — that is the expected case for bad inputs)
     }
@@ -310,7 +342,9 @@ mod tests {
     #[test]
     fn record_outcome_updates_brier() {
         let mut e = make_engine();
-        for _ in 0..100 { e.record_outcome(1.0, true); }
+        for _ in 0..100 {
+            e.record_outcome(1.0, true);
+        }
         assert!(e.brier_score() < 0.01);
     }
 }

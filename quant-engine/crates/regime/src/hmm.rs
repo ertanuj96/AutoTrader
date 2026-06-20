@@ -79,8 +79,8 @@ impl GaussianHMM {
         let mut b = DMatrix::zeros(t, self.k);
         for (i, &obs) in observations.iter().enumerate() {
             for j in 0..self.k {
-                b[(i, j)] = Self::gaussian_pdf(obs, self.means[j], self.variances[j])
-                    .max(1e-300); // Floor to avoid log(0)
+                b[(i, j)] = Self::gaussian_pdf(obs, self.means[j], self.variances[j]).max(1e-300);
+                // Floor to avoid log(0)
             }
         }
         b
@@ -230,16 +230,13 @@ impl GaussianHMM {
                 let gamma_sum: f64 = (0..t_len).map(|t| gamma[(t, k)]).sum();
                 if gamma_sum > 0.0 {
                     // Mean
-                    let weighted_sum: f64 = (0..t_len)
-                        .map(|t| gamma[(t, k)] * observations[t])
-                        .sum();
+                    let weighted_sum: f64 =
+                        (0..t_len).map(|t| gamma[(t, k)] * observations[t]).sum();
                     self.means[k] = weighted_sum / gamma_sum;
 
                     // Variance
                     let weighted_var: f64 = (0..t_len)
-                        .map(|t| {
-                            gamma[(t, k)] * (observations[t] - self.means[k]).powi(2)
-                        })
+                        .map(|t| gamma[(t, k)] * (observations[t] - self.means[k]).powi(2))
                         .sum();
                     self.variances[k] = (weighted_var / gamma_sum).max(1e-10);
                 }
@@ -293,7 +290,11 @@ impl GaussianHMM {
         // Backtrack
         let mut states = vec![0_usize; t_len];
         states[t_len - 1] = (0..self.k)
-            .max_by(|&a, &b| delta[(t_len - 1, a)].partial_cmp(&delta[(t_len - 1, b)]).unwrap())
+            .max_by(|&a, &b| {
+                delta[(t_len - 1, a)]
+                    .partial_cmp(&delta[(t_len - 1, b)])
+                    .unwrap()
+            })
             .unwrap_or(0);
 
         for t in (0..t_len - 1).rev() {
@@ -325,7 +326,9 @@ mod tests {
     use super::*;
 
     fn trending_returns(n: usize) -> Vec<f64> {
-        (0..n).map(|i| 0.001 + (i as f64 * 0.0001).sin() * 0.0002).collect()
+        (0..n)
+            .map(|i| 0.001 + (i as f64 * 0.0001).sin() * 0.0002)
+            .collect()
     }
 
     fn ranging_returns(n: usize) -> Vec<f64> {
@@ -360,7 +363,9 @@ mod tests {
         assert_eq!(probs.len(), 3);
         let s: f64 = probs.iter().sum();
         assert!((s - 1.0).abs() < 1e-9, "probs sum = {s}");
-        for p in &probs { assert!(*p >= 0.0 && *p <= 1.0); }
+        for p in &probs {
+            assert!(*p >= 0.0 && *p <= 1.0);
+        }
     }
 
     #[test]
@@ -369,7 +374,9 @@ mod tests {
         let data = trending_returns(50);
         let states = hmm.decode(&data);
         assert_eq!(states.len(), data.len());
-        for &s in &states { assert!(s < 3); }
+        for &s in &states {
+            assert!(s < 3);
+        }
     }
 
     #[test]
@@ -382,7 +389,11 @@ mod tests {
     fn test_fit_converges_trending() {
         let mut hmm = GaussianHMM::new(3);
         hmm.fit(&trending_returns(200), 50, 1e-6);
-        assert!(hmm.log_likelihood.is_finite(), "ll = {}", hmm.log_likelihood);
+        assert!(
+            hmm.log_likelihood.is_finite(),
+            "ll = {}",
+            hmm.log_likelihood
+        );
     }
 
     #[test]
@@ -412,7 +423,11 @@ mod tests {
         let mut hmm = GaussianHMM::new(3);
         hmm.fit(&ranging_returns(300), 100, 1e-8);
         for i in 0..3 {
-            assert!(hmm.variances[i] > 0.0, "variance[{i}] = {}", hmm.variances[i]);
+            assert!(
+                hmm.variances[i] > 0.0,
+                "variance[{i}] = {}",
+                hmm.variances[i]
+            );
         }
     }
 
@@ -422,7 +437,8 @@ mod tests {
         let hmm = GaussianHMM::new(3);
         let extreme = vec![1e10_f64; 10]; // Far from initial means
         let probs = hmm.current_state_probabilities(&extreme);
-        for p in probs { assert!(p.is_finite()); }
+        for p in probs {
+            assert!(p.is_finite());
+        }
     }
 }
-

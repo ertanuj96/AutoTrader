@@ -131,8 +131,7 @@ impl AnalysisBundle {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 
@@ -144,8 +143,7 @@ async fn main() -> Result<()> {
     // ── Spawn SignalEngine ──────────────────────────────────────────────────────
     {
         let nc = nc.clone();
-        let signal =
-            SignalEngine::new(settings.confidence_threshold, settings.strategy_id.clone());
+        let signal = SignalEngine::new(settings.confidence_threshold, settings.strategy_id.clone());
         tokio::spawn(async move {
             if let Err(e) = signal.run(nc).await {
                 error!(err = %e, "SignalEngine terminated");
@@ -210,10 +208,9 @@ async fn run_analysis(nc: Client, settings: Settings) -> Result<()> {
             publish(&nc, subjects::TREND, &ev).await;
         }
         // ReversalEngine ───────────────────────────────────────────────────────
-        if let Some(ev) =
-            bundle
-                .reversal
-                .update(bar.close, bar.oi as f64, bar.volume as f64)
+        if let Some(ev) = bundle
+            .reversal
+            .update(bar.close, bar.oi as f64, bar.volume as f64)
         {
             publish(&nc, subjects::REVERSAL, &ev).await;
         }
@@ -243,11 +240,20 @@ fn env_str(key: &str, def: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| def.to_string())
 }
 fn env_f64(key: &str, def: f64) -> f64 {
-    std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(def)
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(def)
 }
 fn env_usize(key: &str, def: usize) -> usize {
-    std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(def)
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(def)
 }
 fn env_u32(key: &str, def: u32) -> u32 {
-    std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(def)
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(def)
 }

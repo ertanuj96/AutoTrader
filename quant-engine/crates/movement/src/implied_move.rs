@@ -5,4 +5,3 @@
 pub fn implied_expected_move(atm_call_premium: f64, atm_put_premium: f64) -> f64 {
     (atm_call_premium + atm_put_premium) * 0.85
 }
-

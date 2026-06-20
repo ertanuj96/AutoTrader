@@ -1,11 +1,11 @@
 //! Trend Engine orchestrator — combines Kalman, regression, and Mann-Kendall.
 
-use autotrader_common::{TrendEvent, TrendDirection, Timeframe};
+use crate::kalman::KalmanFilter;
+use crate::mann_kendall::mann_kendall;
+use crate::regression::linear_regression;
+use autotrader_common::{Timeframe, TrendDirection, TrendEvent};
 use chrono::Utc;
 use uuid::Uuid;
-use crate::kalman::KalmanFilter;
-use crate::regression::linear_regression;
-use crate::mann_kendall::mann_kendall;
 
 pub struct TrendEngine {
     symbol: String,
@@ -19,7 +19,8 @@ pub struct TrendEngine {
 impl TrendEngine {
     pub fn new(symbol: String, timeframe: Timeframe, window: usize) -> Self {
         Self {
-            symbol, timeframe,
+            symbol,
+            timeframe,
             kalman: KalmanFilter::new(0.0, 0.01, 1.0),
             price_buffer: Vec::with_capacity(window + 10),
             window,
@@ -36,10 +37,13 @@ impl TrendEngine {
         let (_, slope, uncertainty) = self.kalman.update(price);
         self.price_buffer.push(price);
         if self.price_buffer.len() > self.window * 2 {
-            self.price_buffer.drain(0..self.price_buffer.len() - self.window);
+            self.price_buffer
+                .drain(0..self.price_buffer.len() - self.window);
         }
 
-        if self.price_buffer.len() < 20 { return None; }
+        if self.price_buffer.len() < 20 {
+            return None;
+        }
 
         let window = &self.price_buffer[self.price_buffer.len().saturating_sub(self.window)..];
         let reg = linear_regression(window)?;
@@ -47,8 +51,10 @@ impl TrendEngine {
 
         // Combine signals into direction + strength
         let norm_slope = slope / (price.abs().max(1.0) * 0.001);
-        let strength = (reg.r_squared * 0.4 + (1.0 - mk.p_value).clamp(0.0, 1.0) * 0.3
-            + norm_slope.abs().clamp(0.0, 1.0) * 0.3).clamp(0.0, 1.0);
+        let strength = (reg.r_squared * 0.4
+            + (1.0 - mk.p_value).clamp(0.0, 1.0) * 0.3
+            + norm_slope.abs().clamp(0.0, 1.0) * 0.3)
+            .clamp(0.0, 1.0);
 
         let direction = match (norm_slope, strength) {
             (s, st) if s > 1.0 && st > 0.6 => TrendDirection::StrongUp,
@@ -72,4 +78,3 @@ impl TrendEngine {
         })
     }
 }
-

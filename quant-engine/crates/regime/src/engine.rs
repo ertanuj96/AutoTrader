@@ -49,10 +49,12 @@ impl RegimeEngine {
 
         // Trim buffers
         if self.returns_buffer.len() > self.max_buffer {
-            self.returns_buffer.drain(0..self.returns_buffer.len() - self.max_buffer);
+            self.returns_buffer
+                .drain(0..self.returns_buffer.len() - self.max_buffer);
         }
         if self.prices_buffer.len() > self.max_buffer {
-            self.prices_buffer.drain(0..self.prices_buffer.len() - self.max_buffer);
+            self.prices_buffer
+                .drain(0..self.prices_buffer.len() - self.max_buffer);
         }
 
         if self.returns_buffer.len() < self.min_observations {
@@ -101,4 +103,3 @@ impl RegimeEngine {
         })
     }
 }
-

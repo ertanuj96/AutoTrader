@@ -9,7 +9,9 @@ pub struct RegressionResult {
 /// OLS linear regression on windowed price series.
 pub fn linear_regression(prices: &[f64]) -> Option<RegressionResult> {
     let n = prices.len();
-    if n < 3 { return None; }
+    if n < 3 {
+        return None;
+    }
 
     let nf = n as f64;
     let sx: f64 = (0..n).map(|i| i as f64).sum();
@@ -18,7 +20,9 @@ pub fn linear_regression(prices: &[f64]) -> Option<RegressionResult> {
     let sxx: f64 = (0..n).map(|i| (i as f64).powi(2)).sum();
 
     let d = nf * sxx - sx * sx;
-    if d.abs() < 1e-15 { return None; }
+    if d.abs() < 1e-15 {
+        return None;
+    }
 
     let slope = (nf * sxy - sx * sy) / d;
     let intercept = (sy - slope * sx) / nf;
@@ -26,11 +30,21 @@ pub fn linear_regression(prices: &[f64]) -> Option<RegressionResult> {
     // R²
     let mean_y = sy / nf;
     let ss_tot: f64 = prices.iter().map(|y| (y - mean_y).powi(2)).sum();
-    let ss_res: f64 = prices.iter().enumerate()
-        .map(|(i, &y)| (y - (intercept + slope * i as f64)).powi(2)).sum();
+    let ss_res: f64 = prices
+        .iter()
+        .enumerate()
+        .map(|(i, &y)| (y - (intercept + slope * i as f64)).powi(2))
+        .sum();
 
-    let r_squared = if ss_tot > 1e-15 { 1.0 - ss_res / ss_tot } else { 0.0 };
+    let r_squared = if ss_tot > 1e-15 {
+        1.0 - ss_res / ss_tot
+    } else {
+        0.0
+    };
 
-    Some(RegressionResult { slope, intercept, r_squared })
+    Some(RegressionResult {
+        slope,
+        intercept,
+        r_squared,
+    })
 }
-

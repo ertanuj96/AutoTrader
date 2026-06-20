@@ -1,7 +1,7 @@
 //! Idempotent order state machine for tracking order lifecycle.
 
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 // ─── Order status variants ────────────────────────────────────────────────────
@@ -10,26 +10,40 @@ use uuid::Uuid;
 pub enum OrderStatus {
     New,
     Submitted,
-    Acknowledged { broker_order_id: String },
-    PartiallyFilled { filled_qty: u32, avg_price: f64, broker_order_id: String },
-    Filled          { filled_qty: u32, avg_price: f64, broker_order_id: String },
-    Cancelled       { reason: String },
-    Rejected        { reason: String },
+    Acknowledged {
+        broker_order_id: String,
+    },
+    PartiallyFilled {
+        filled_qty: u32,
+        avg_price: f64,
+        broker_order_id: String,
+    },
+    Filled {
+        filled_qty: u32,
+        avg_price: f64,
+        broker_order_id: String,
+    },
+    Cancelled {
+        reason: String,
+    },
+    Rejected {
+        reason: String,
+    },
 }
 
 // ─── Order record ─────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct OrderRecord {
-    pub order_id:     Uuid,
-    pub signal_id:    Uuid,
-    pub symbol:       String,
-    pub exchange:     String,
-    pub side:         String,
+    pub order_id: Uuid,
+    pub signal_id: Uuid,
+    pub symbol: String,
+    pub exchange: String,
+    pub side: String,
     pub requested_qty: u32,
-    pub status:       OrderStatus,
-    pub created_at:   DateTime<Utc>,
-    pub updated_at:   DateTime<Utc>,
+    pub status: OrderStatus,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 // ─── State machine ────────────────────────────────────────────────────────────
@@ -40,7 +54,9 @@ pub struct OrderStateMachine {
 
 impl OrderStateMachine {
     pub fn new() -> Self {
-        Self { orders: HashMap::new() }
+        Self {
+            orders: HashMap::new(),
+        }
     }
 
     /// Insert a new order (must start in New or Submitted status).
@@ -49,11 +65,7 @@ impl OrderStateMachine {
     }
 
     /// Transition: Submitted → Acknowledged.
-    pub fn acknowledge(
-        &mut self,
-        order_id: Uuid,
-        broker_order_id: String,
-    ) -> Result<(), String> {
+    pub fn acknowledge(&mut self, order_id: Uuid, broker_order_id: String) -> Result<(), String> {
         let rec = self.get_mut_or_err(order_id)?;
         match &rec.status {
             OrderStatus::Submitted => {
@@ -152,24 +164,36 @@ impl OrderStateMachine {
 
     /// Orders that are not yet in a terminal state.
     pub fn active_orders(&self) -> Vec<&OrderRecord> {
-        self.orders.values().filter(|r| !Self::is_terminal(&r.status)).collect()
+        self.orders
+            .values()
+            .filter(|r| !Self::is_terminal(&r.status))
+            .collect()
     }
 
     /// Orders that are in a terminal state (Filled, Cancelled, Rejected).
     pub fn completed_orders(&self) -> Vec<&OrderRecord> {
-        self.orders.values().filter(|r| Self::is_terminal(&r.status)).collect()
+        self.orders
+            .values()
+            .filter(|r| Self::is_terminal(&r.status))
+            .collect()
     }
 
-    pub fn len(&self) -> usize { self.orders.len() }
+    pub fn len(&self) -> usize {
+        self.orders.len()
+    }
 
-    pub fn is_empty(&self) -> bool { self.orders.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.orders.is_empty()
+    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     fn is_terminal(status: &OrderStatus) -> bool {
         matches!(
             status,
-            OrderStatus::Filled { .. } | OrderStatus::Cancelled { .. } | OrderStatus::Rejected { .. }
+            OrderStatus::Filled { .. }
+                | OrderStatus::Cancelled { .. }
+                | OrderStatus::Rejected { .. }
         )
     }
 
@@ -181,7 +205,9 @@ impl OrderStateMachine {
 }
 
 impl Default for OrderStateMachine {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -210,10 +236,16 @@ mod tests {
         sm.submit(new_order(id));
 
         sm.acknowledge(id, "BRK-001".into()).unwrap();
-        assert!(matches!(sm.get(&id).unwrap().status, OrderStatus::Acknowledged { .. }));
+        assert!(matches!(
+            sm.get(&id).unwrap().status,
+            OrderStatus::Acknowledged { .. }
+        ));
 
         sm.fill(id, 5, 18000.0, "BRK-001".into()).unwrap();
-        assert!(matches!(sm.get(&id).unwrap().status, OrderStatus::Filled { .. }));
+        assert!(matches!(
+            sm.get(&id).unwrap().status,
+            OrderStatus::Filled { .. }
+        ));
 
         assert_eq!(sm.active_orders().len(), 0);
         assert_eq!(sm.completed_orders().len(), 1);
@@ -226,10 +258,16 @@ mod tests {
         sm.submit(new_order(id));
 
         sm.partial_fill(id, 2, 18000.0, "BRK-002".into()).unwrap();
-        assert!(matches!(sm.get(&id).unwrap().status, OrderStatus::PartiallyFilled { .. }));
+        assert!(matches!(
+            sm.get(&id).unwrap().status,
+            OrderStatus::PartiallyFilled { .. }
+        ));
 
         sm.fill(id, 5, 18001.0, "BRK-002".into()).unwrap();
-        assert!(matches!(sm.get(&id).unwrap().status, OrderStatus::Filled { .. }));
+        assert!(matches!(
+            sm.get(&id).unwrap().status,
+            OrderStatus::Filled { .. }
+        ));
     }
 
     #[test]
@@ -238,7 +276,10 @@ mod tests {
         let id = Uuid::new_v4();
         sm.submit(new_order(id));
         sm.cancel(id, "user cancelled".into()).unwrap();
-        assert!(matches!(sm.get(&id).unwrap().status, OrderStatus::Cancelled { .. }));
+        assert!(matches!(
+            sm.get(&id).unwrap().status,
+            OrderStatus::Cancelled { .. }
+        ));
     }
 
     #[test]
@@ -249,7 +290,10 @@ mod tests {
         rec.status = OrderStatus::New;
         sm.submit(rec);
         sm.reject(id, "insufficient margin".into()).unwrap();
-        assert!(matches!(sm.get(&id).unwrap().status, OrderStatus::Rejected { .. }));
+        assert!(matches!(
+            sm.get(&id).unwrap().status,
+            OrderStatus::Rejected { .. }
+        ));
     }
 
     #[test]
@@ -297,7 +341,9 @@ mod tests {
     fn len_tracks_orders() {
         let mut sm = OrderStateMachine::new();
         assert_eq!(sm.len(), 0);
-        for _ in 0..3 { sm.submit(new_order(Uuid::new_v4())); }
+        for _ in 0..3 {
+            sm.submit(new_order(Uuid::new_v4()));
+        }
         assert_eq!(sm.len(), 3);
     }
 }

@@ -15,15 +15,20 @@ pub struct MannKendallResult {
 /// Run Mann-Kendall test on a time series.
 pub fn mann_kendall(data: &[f64], alpha: f64) -> Option<MannKendallResult> {
     let n = data.len();
-    if n < 4 { return None; }
+    if n < 4 {
+        return None;
+    }
 
     // S = Σ sign(x_j - x_i) for all i < j
     let mut s: i64 = 0;
     for i in 0..n - 1 {
         for j in i + 1..n {
             let diff = data[j] - data[i];
-            if diff > 0.0 { s += 1; }
-            else if diff < 0.0 { s -= 1; }
+            if diff > 0.0 {
+                s += 1;
+            } else if diff < 0.0 {
+                s -= 1;
+            }
         }
     }
 
@@ -32,9 +37,13 @@ pub fn mann_kendall(data: &[f64], alpha: f64) -> Option<MannKendallResult> {
     let var_s = nf * (nf - 1.0) * (2.0 * nf + 5.0) / 18.0;
 
     // Z-score with continuity correction
-    let z = if s > 0 { (s as f64 - 1.0) / var_s.sqrt() }
-    else if s < 0 { (s as f64 + 1.0) / var_s.sqrt() }
-    else { 0.0 };
+    let z = if s > 0 {
+        (s as f64 - 1.0) / var_s.sqrt()
+    } else if s < 0 {
+        (s as f64 + 1.0) / var_s.sqrt()
+    } else {
+        0.0
+    };
 
     let normal = Normal::new(0.0, 1.0).ok()?;
     let p = 2.0 * (1.0 - normal.cdf(z.abs()));
@@ -90,4 +99,3 @@ mod tests {
         assert!(r.p_value >= 0.0 && r.p_value <= 1.0, "p = {}", r.p_value);
     }
 }
-

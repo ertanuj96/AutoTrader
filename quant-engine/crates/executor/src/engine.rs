@@ -2,58 +2,58 @@
 //! SEBI throttle, emits OrderIntents.
 
 use async_nats::Client;
-use futures::StreamExt as _;
 use chrono::{DateTime, Utc};
+use futures::StreamExt as _;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use autotrader_common::{ScoredSignal, subjects, Side};
+use autotrader_common::{subjects, ScoredSignal, Side};
 
-use crate::sizing::{kelly_fraction, kelly_lots};
 use crate::risk::RiskCheck;
+use crate::sizing::{kelly_fraction, kelly_lots};
+use crate::state_machine::{OrderRecord, OrderStateMachine, OrderStatus};
 use crate::throttle::OpsThrottle;
-use crate::state_machine::{OrderStateMachine, OrderRecord, OrderStatus};
 
 // ─── Order intent published to broker supervisor ──────────────────────────────
 
 /// Outbound order intent published on `pts.order.submitted`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderIntent {
-    pub order_id:    Uuid,
-    pub signal_id:   Uuid,
+    pub order_id: Uuid,
+    pub signal_id: Uuid,
     pub strategy_id: String,
-    pub symbol:      String,
-    pub exchange:    String,
-    pub side:        String,
-    pub quantity:    u32,
-    pub order_type:  String, // "MARKET"
-    pub product:     String, // "MIS"
-    pub timestamp:   DateTime<Utc>,
+    pub symbol: String,
+    pub exchange: String,
+    pub side: String,
+    pub quantity: u32,
+    pub order_type: String, // "MARKET"
+    pub product: String,    // "MIS"
+    pub timestamp: DateTime<Utc>,
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 pub struct ExecutorConfig {
-    pub capital:            f64,
-    pub lot_value:          f64,   // e.g. 50_000 for NIFTY
-    pub max_lots:           u32,
-    pub kelly_max_fraction: f64,   // cap, e.g. 0.10
-    pub max_daily_loss:     f64,
-    pub max_position_size:  u32,
-    pub max_drawdown_pct:   f64,
-    pub max_ops:            u32,   // SEBI: 9
-    pub strategy_id:        String,
+    pub capital: f64,
+    pub lot_value: f64, // e.g. 50_000 for NIFTY
+    pub max_lots: u32,
+    pub kelly_max_fraction: f64, // cap, e.g. 0.10
+    pub max_daily_loss: f64,
+    pub max_position_size: u32,
+    pub max_drawdown_pct: f64,
+    pub max_ops: u32, // SEBI: 9
+    pub strategy_id: String,
 }
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
 
 pub struct ExecutorEngine {
-    config:         ExecutorConfig,
-    throttle:       OpsThrottle,
-    orders:         OrderStateMachine,
-    daily_pnl:      f64,
-    peak_equity:    f64,
+    config: ExecutorConfig,
+    throttle: OpsThrottle,
+    orders: OrderStateMachine,
+    daily_pnl: f64,
+    peak_equity: f64,
     current_equity: f64,
 }
 
@@ -108,12 +108,12 @@ impl ExecutorEngine {
 
             // ── 2. Risk check ────────────────────────────────────────────────
             let risk = RiskCheck {
-                max_daily_loss:     self.config.max_daily_loss,
-                max_position_size:  self.config.max_position_size,
-                max_drawdown_pct:   self.config.max_drawdown_pct,
-                current_daily_pnl:  self.daily_pnl,
-                peak_equity:        self.peak_equity,
-                current_equity:     self.current_equity,
+                max_daily_loss: self.config.max_daily_loss,
+                max_position_size: self.config.max_position_size,
+                max_drawdown_pct: self.config.max_drawdown_pct,
+                current_daily_pnl: self.daily_pnl,
+                peak_equity: self.peak_equity,
+                current_equity: self.current_equity,
             };
             if let Err(e) = risk.is_safe(lots) {
                 warn!(err = %e, signal_id = %signal.signal_id, "risk check failed — skip");
@@ -133,7 +133,11 @@ impl ExecutorEngine {
                 signal_id: signal.signal_id,
                 symbol: signal.symbol.clone(),
                 exchange: signal.exchange.clone(),
-                side: match signal.action { Side::Buy => "BUY", Side::Sell => "SELL" }.into(),
+                side: match signal.action {
+                    Side::Buy => "BUY",
+                    Side::Sell => "SELL",
+                }
+                .into(),
                 requested_qty: lots,
                 status: OrderStatus::Submitted,
                 created_at: Utc::now(),
@@ -148,7 +152,11 @@ impl ExecutorEngine {
                 strategy_id: self.config.strategy_id.clone(),
                 symbol: signal.symbol.clone(),
                 exchange: signal.exchange.clone(),
-                side: match signal.action { Side::Buy => "BUY", Side::Sell => "SELL" }.into(),
+                side: match signal.action {
+                    Side::Buy => "BUY",
+                    Side::Sell => "SELL",
+                }
+                .into(),
                 quantity: lots,
                 order_type: "MARKET".into(),
                 product: "MIS".into(),
@@ -179,8 +187,8 @@ impl ExecutorEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sizing::{kelly_fraction, kelly_lots};
     use crate::risk::RiskCheck;
+    use crate::sizing::{kelly_fraction, kelly_lots};
 
     fn default_config() -> ExecutorConfig {
         ExecutorConfig {
@@ -239,9 +247,7 @@ mod tests {
     fn daily_loss_breached_returns_err() {
         let cfg = default_config();
         // Daily PnL well below limit
-        let result = try_size_and_check(
-            0.75, 2.0, -60_000.0, 940_000.0, 1_000_000.0, &cfg,
-        );
+        let result = try_size_and_check(0.75, 2.0, -60_000.0, 940_000.0, 1_000_000.0, &cfg);
         assert!(result.is_err(), "should be blocked by daily loss limit");
         assert!(result.unwrap_err().contains("Daily loss"));
     }
@@ -250,9 +256,7 @@ mod tests {
     fn drawdown_breached_returns_err() {
         let cfg = default_config();
         // 7% drawdown — over 5% limit
-        let result = try_size_and_check(
-            0.75, 2.0, 0.0, 930_000.0, 1_000_000.0, &cfg,
-        );
+        let result = try_size_and_check(0.75, 2.0, 0.0, 930_000.0, 1_000_000.0, &cfg);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Drawdown"));
     }
@@ -263,6 +267,10 @@ mod tests {
         // Even with very high confidence, lots are capped
         let fraction = kelly_fraction(0.99, 10.0, cfg.kelly_max_fraction);
         let lots = kelly_lots(fraction, cfg.capital, cfg.lot_value, cfg.max_lots);
-        assert!(lots <= cfg.max_lots, "lots={lots} should not exceed max={}", cfg.max_lots);
+        assert!(
+            lots <= cfg.max_lots,
+            "lots={lots} should not exceed max={}",
+            cfg.max_lots
+        );
     }
 }

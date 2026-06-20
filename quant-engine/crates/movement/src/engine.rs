@@ -4,9 +4,9 @@ use autotrader_common::{MovementEvent, Timeframe};
 use chrono::Utc;
 use uuid::Uuid;
 
-use crate::vol_forecast::realized_vol;
 use crate::atr::atr;
 use crate::implied_move::implied_expected_move;
+use crate::vol_forecast::realized_vol;
 
 const BUFFER_MAX: usize = 200;
 
@@ -81,7 +81,8 @@ impl MovementEngine {
                 }
                 self.returns_buffer.push(ret);
                 if self.returns_buffer.len() > BUFFER_MAX {
-                    self.returns_buffer.drain(0..self.returns_buffer.len() - BUFFER_MAX);
+                    self.returns_buffer
+                        .drain(0..self.returns_buffer.len() - BUFFER_MAX);
                 }
             }
         } else {
@@ -91,7 +92,8 @@ impl MovementEngine {
 
         self.ohlc_buffer.push((high, low, close));
         if self.ohlc_buffer.len() > BUFFER_MAX {
-            self.ohlc_buffer.drain(0..self.ohlc_buffer.len() - BUFFER_MAX);
+            self.ohlc_buffer
+                .drain(0..self.ohlc_buffer.len() - BUFFER_MAX);
         }
 
         // ── 3. Warm-up gate ───────────────────────────────────────────────────
@@ -181,7 +183,11 @@ mod tests {
             last_ev = e.update(price + 10.0, price - 10.0, price);
         }
         let ev = last_ev.expect("should emit");
-        assert!(ev.garch_vol > 0.0, "garch_vol must be positive, got {}", ev.garch_vol);
+        assert!(
+            ev.garch_vol > 0.0,
+            "garch_vol must be positive, got {}",
+            ev.garch_vol
+        );
     }
 
     #[test]
@@ -193,7 +199,7 @@ mod tests {
         let mut high_ev = None;
 
         for i in 0..40_usize {
-            let base = 18000.0 + i as f64 * 0.1;           // tiny close drift → low vol
+            let base = 18000.0 + i as f64 * 0.1; // tiny close drift → low vol
             let base_hv = 18000.0 + (i as f64 * 50.0) * (if i % 2 == 0 { 1.0 } else { -1.0 });
             low_ev = low_vol_engine.update(base + 5.0, base - 5.0, base);
             high_ev = high_vol_engine.update(base_hv + 200.0, base_hv - 200.0, base_hv);
@@ -203,7 +209,9 @@ mod tests {
         let hv = high_ev.expect("high vol should emit");
         assert!(
             hv.garch_vol > lv.garch_vol,
-            "high vol ({}) should exceed low vol ({})", hv.garch_vol, lv.garch_vol
+            "high vol ({}) should exceed low vol ({})",
+            hv.garch_vol,
+            lv.garch_vol
         );
     }
 

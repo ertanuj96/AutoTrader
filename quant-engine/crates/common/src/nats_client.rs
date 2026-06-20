@@ -10,4 +10,3 @@ pub async fn connect(url: &str) -> Result<Client> {
     info!(url = url, "Connected to NATS");
     Ok(client)
 }
-

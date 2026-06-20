@@ -15,15 +15,24 @@ pub struct Garch {
 
 impl Garch {
     pub fn new(omega: f64, alpha: f64, beta: f64) -> Self {
-        let lr = if (alpha + beta) < 1.0 { omega / (1.0 - alpha - beta) } else { omega };
-        Self { omega, alpha, beta, current_variance: lr, long_run_variance: lr }
+        let lr = if (alpha + beta) < 1.0 {
+            omega / (1.0 - alpha - beta)
+        } else {
+            omega
+        };
+        Self {
+            omega,
+            alpha,
+            beta,
+            current_variance: lr,
+            long_run_variance: lr,
+        }
     }
 
     /// Update variance with a new return observation.
     pub fn update(&mut self, return_val: f64) -> f64 {
-        self.current_variance = self.omega
-            + self.alpha * return_val.powi(2)
-            + self.beta * self.current_variance;
+        self.current_variance =
+            self.omega + self.alpha * return_val.powi(2) + self.beta * self.current_variance;
         self.current_variance
     }
 
@@ -42,9 +51,13 @@ impl Garch {
             let a = alpha_i as f64 * 0.01;
             for beta_i in 1..20 {
                 let b = beta_i as f64 * 0.05;
-                if a + b >= 0.999 { continue; }
+                if a + b >= 0.999 {
+                    continue;
+                }
                 let o = sample_var * (1.0 - a - b);
-                if o <= 0.0 { continue; }
+                if o <= 0.0 {
+                    continue;
+                }
 
                 let ll = Self::log_likelihood(returns, o, a, b);
                 if ll > best_ll {
@@ -54,7 +67,9 @@ impl Garch {
             }
         }
         // Run model through data to set current_variance
-        for &r in returns { best.update(r); }
+        for &r in returns {
+            best.update(r);
+        }
         best
     }
 
@@ -63,7 +78,9 @@ impl Garch {
         let mut var = lr;
         let mut ll = 0.0;
         for &r in returns {
-            if var <= 0.0 { return f64::NEG_INFINITY; }
+            if var <= 0.0 {
+                return f64::NEG_INFINITY;
+            }
             ll += -0.5 * (var.ln() + r * r / var);
             var = omega + alpha * r * r + beta * var;
         }
@@ -100,15 +117,21 @@ mod tests {
         let mut g = Garch::new(0.00001, 0.1, 0.85);
         let lr = g.long_run_variance;
         let v = g.update(0.05); // large 5% return
-        assert!(v > lr, "large shock should raise variance above long-run: {v} vs {lr}");
+        assert!(
+            v > lr,
+            "large shock should raise variance above long-run: {v} vs {lr}"
+        );
     }
 
     #[test]
     fn test_stationarity_constraint_after_fit() {
         let returns = sinusoidal_returns(200, 0.01);
         let g = Garch::fit(&returns);
-        assert!(g.alpha + g.beta < 1.0,
-            "stationarity violated: α+β = {}", g.alpha + g.beta);
+        assert!(
+            g.alpha + g.beta < 1.0,
+            "stationarity violated: α+β = {}",
+            g.alpha + g.beta
+        );
     }
 
     #[test]
@@ -124,8 +147,10 @@ mod tests {
         let f_far = g.forecast(100);
         let f_near = g.forecast(1);
         let lr = g.long_run_variance;
-        assert!((f_far - lr).abs() < (f_near - lr).abs(),
-            "far forecast {f_far} should be closer to LR {lr} than near {f_near}");
+        assert!(
+            (f_far - lr).abs() < (f_near - lr).abs(),
+            "far forecast {f_far} should be closer to LR {lr} than near {f_near}"
+        );
     }
 
     #[test]
@@ -143,4 +168,3 @@ mod tests {
         assert!(g.omega > 0.0);
     }
 }
-
