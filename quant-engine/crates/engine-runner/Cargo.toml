@@ -1,0 +1,26 @@
+[package]
+name = "autotrader-engine-runner"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "quant-engine"
+path = "src/main.rs"
+
+[dependencies]
+autotrader-common = { path = "../common" }
+autotrader-regime = { path = "../regime" }
+autotrader-trend = { path = "../trend" }
+autotrader-reversal = { path = "../reversal" }
+autotrader-movement = { path = "../movement" }
+autotrader-signal = { path = "../signal" }
+autotrader-executor = { path = "../executor" }
+
+tokio.workspace = true
+async-nats.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+futures.workspace = true

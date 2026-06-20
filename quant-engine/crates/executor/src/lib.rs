@@ -4,5 +4,5 @@ pub mod risk;
 pub mod throttle;
 pub mod state_machine;
 pub mod engine;
-pub use engine::ExecutorEngine;
+pub use engine::{ExecutorConfig, ExecutorEngine, OrderIntent};
 

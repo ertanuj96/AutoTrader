@@ -27,7 +27,7 @@ test-python:
 # ── Development ──
 dev: infra
 	@echo "🚀 Infrastructure running. Start services manually:"
-	@echo "  Rust:   cd quant-engine && cargo run"
+	@echo "  Rust:   cd quant-engine && cargo run --bin quant-engine"
 	@echo "  Go:     cd ingestion && go run ./cmd/ingest"
 	@echo "  Python: cd trading-core && python -m pts.main"
 	@echo "  API:    cd dashboard-api && uvicorn app.main:app --port 8001 --reload"

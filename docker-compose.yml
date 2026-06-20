@@ -41,6 +41,7 @@ services:
       - "9000:9000"   # Native
     volumes:
       - clickhouse_data:/var/lib/clickhouse
+      - ./infra/clickhouse/init:/docker-entrypoint-initdb.d:ro
     environment:
       CLICKHOUSE_DB: pts
       CLICKHOUSE_USER: pts
