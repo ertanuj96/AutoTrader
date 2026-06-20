@@ -9,4 +9,10 @@ serde.workspace = true
 tracing.workspace = true
 chrono.workspace = true
 uuid.workspace = true
+anyhow.workspace = true
+statrs.workspace = true
+
+[dev-dependencies]
+proptest = { workspace = true }
+approx = { workspace = true }
 

@@ -10,11 +10,15 @@ autotrader-trend = { path = "../trend" }
 autotrader-reversal = { path = "../reversal" }
 autotrader-movement = { path = "../movement" }
 serde.workspace = true
+serde_json.workspace = true
 tracing.workspace = true
 chrono.workspace = true
 uuid.workspace = true
+tokio.workspace = true
+async-nats.workspace = true
+anyhow.workspace = true
+futures.workspace = true
 
 [dev-dependencies]
 proptest = { workspace = true }
 approx = { workspace = true }
-

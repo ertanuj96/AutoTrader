@@ -55,6 +55,20 @@ pub enum Timeframe {
     Day1,
 }
 
+impl std::fmt::Display for Timeframe {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Timeframe::Min1  => "1m",
+            Timeframe::Min5  => "5m",
+            Timeframe::Min15 => "15m",
+            Timeframe::Hour1 => "1h",
+            Timeframe::Hour4 => "4h",
+            Timeframe::Day1  => "1d",
+        };
+        write!(f, "{s}")
+    }
+}
+
 // ─── Quant Engine Output Events (PTS-006) ───
 
 /// Market regime classification output.
@@ -203,4 +217,3 @@ pub mod subjects {
     pub const SIGNAL: &str = "pts.quant.signal";
     pub const EXECUTION: &str = "pts.quant.execution";
 }
-
