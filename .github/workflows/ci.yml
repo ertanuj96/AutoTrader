@@ -120,7 +120,10 @@ jobs:
           cache: npm
           cache-dependency-path: dashboard-ui/package-lock.json
       - name: Install
-        run: npm ci
+        # `npm install` (not `npm ci`) so Linux-only optional deps (e.g. the
+        # @emnapi/* wasm fallbacks) resolve on the runner even when the lockfile
+        # was last regenerated on macOS, which omits them.
+        run: npm install --no-audit --no-fund
       - name: Test
         run: npm run test
 
