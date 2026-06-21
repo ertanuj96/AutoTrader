@@ -3,7 +3,7 @@
     {vsn, "0.1.0"},
     {registered, [broker_sup, kill_switch, rate_limiter]},
     {mod, {broker_app, []}},
-    {applications, [kernel, stdlib, nats]},
+    {applications, [kernel, stdlib]},
     {env, [
         {nats_url, "nats://localhost:4222"},
         {brokers, [

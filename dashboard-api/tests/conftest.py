@@ -21,11 +21,10 @@ def mock_redis(monkeypatch):
     redis_mock.get.return_value = None
     redis_mock.hget.return_value = None
 
-    async def _get_redis():
-        return redis_mock
-
-    monkeypatch.setattr(deps, "_redis", None)
-    monkeypatch.setattr(deps, "get_redis", _get_redis)
+    # Routes call `await deps.get_redis()` directly; get_redis returns the module
+    # global `_redis` when it is already set. Inject the mock there so no real
+    # connection is attempted, regardless of how get_redis was imported.
+    monkeypatch.setattr(deps, "_redis", redis_mock)
     return redis_mock
 
 
@@ -35,11 +34,8 @@ def mock_nats(monkeypatch):
     nats_mock = AsyncMock()
     nats_mock.is_closed = False
 
-    async def _get_nats():
-        return nats_mock
-
-    monkeypatch.setattr(deps, "_nc", None)
-    monkeypatch.setattr(deps, "get_nats", _get_nats)
+    # get_nats returns the cached `_nc` when it is set and not closed.
+    monkeypatch.setattr(deps, "_nc", nats_mock)
     return nats_mock
 
 

@@ -1,8 +1,15 @@
 import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [react()],
+  // Transform JSX with esbuild's automatic runtime so test/component files
+  // don't need an explicit `import React`. This avoids coupling the test
+  // pipeline to a specific @vitejs/plugin-react ↔ Vite version pairing
+  // (plugin-react lags new Vite majors, which silently dropped the JSX
+  // transform and produced "React is not defined").
+  esbuild: {
+    jsx: 'automatic',
+    jsxImportSource: 'react',
+  },
   test: {
     environment: 'jsdom',
     globals: true,
