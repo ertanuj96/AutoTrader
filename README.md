@@ -1,4 +1,4 @@
-<![CDATA[<div align="center">
+<div align="center">
 
 # 🤖 AutoTrader
 
@@ -289,4 +289,4 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 If you find AutoTrader useful, please ⭐ star the repo — it helps others discover it!
 
 </div>
-]]>
+

@@ -1,0 +1,18 @@
+[package]
+name = "autotrader-movement"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+autotrader-common = { path = "../common" }
+serde.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+anyhow.workspace = true
+statrs.workspace = true
+
+[dev-dependencies]
+proptest = { workspace = true }
+approx = { workspace = true }
+

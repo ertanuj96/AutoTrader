@@ -1,4 +1,4 @@
-<![CDATA[# Contributing to AutoTrader
+# Contributing to AutoTrader
 
 Thank you for your interest in contributing to AutoTrader! This project aims to be the go-to open-source framework for building algorithmic trading systems, and your contributions help make that possible.
 
@@ -154,4 +154,4 @@ AutoTrader follows an **event-driven architecture**. When contributing:
 ## Questions?
 
 Open a GitHub Issue or start a Discussion. We're happy to help!
-]]>
+
